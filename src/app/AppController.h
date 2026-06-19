@@ -18,7 +18,10 @@ private:
   NetworkManager _network;
   VoiceManager _voice;
   LlmClient _llm;
+  bool _audioReactionActive = false;
+  unsigned long _audioReactionStartMs = 0;
 
+  void updateAudioTestMode();
   void handleVoiceToLlm();
   void handleLlmReply();
 };

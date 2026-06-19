@@ -19,18 +19,29 @@ namespace AppConfig {
   }
 
   namespace Audio {
-    const uint8_t I2S_BCLK_PIN = 4;
-    const uint8_t I2S_LRCLK_PIN = 5;
+    const uint8_t MIC_BCLK_PIN = 4;
+    const uint8_t MIC_LRCLK_PIN = 5;
     const uint8_t MIC_DATA_PIN = 6;
-    const uint8_t SPEAKER_DATA_PIN = 7;
+    const uint8_t SPEAKER_BCLK_PIN = 10;
+    const uint8_t SPEAKER_LRCLK_PIN = 11;
+    const uint8_t SPEAKER_DATA_PIN = 12;
+    const uint32_t SAMPLE_RATE = 16000;
+    const uint16_t TEST_TONE_HZ = 880;
+    const uint32_t SOUND_TRIGGER_RMS = 650;
+    const uint32_t SOUND_TRIGGER_PEAK = 1200;
+    const unsigned long SOUND_TRIGGER_COOLDOWN_MS = 1500;
   }
 
   namespace Input {
-    const uint8_t BUTTON_A_PIN = 15;
-    const uint8_t BUTTON_B_PIN = 16;
+    const uint8_t TOUCH_LEFT_PIN = 10;
+    const uint8_t TOUCH_RIGHT_PIN = 11;
   }
 
   namespace Feature {
+    const bool AUDIO_TEST_MODE = true;
+    const bool AUDIO_TEST_MIC = true;
+    const bool AUDIO_TEST_SPEAKER = true;
+    const bool AUDIO_TEST_DISPLAY = true;
     const bool NETWORK_ENABLED = false;
     const bool VOICE_ENABLED = false;
     const bool LLM_ENABLED = false;

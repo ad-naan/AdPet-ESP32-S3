@@ -8,19 +8,36 @@ void AppController::begin() {
   Serial.println();
   Serial.println("AdPet framework starting...");
 
-  _display.begin();
-  _display.showBoot();
+  if (!AppConfig::Feature::AUDIO_TEST_MODE || AppConfig::Feature::AUDIO_TEST_DISPLAY) {
+    _display.begin();
+    _display.showBoot();
+  }
 
   _brain.begin();
-  _network.begin();
-  _voice.begin();
-  _llm.begin();
 
-  _display.drawFace(_brain.currentEmotion());
+  if (!AppConfig::Feature::AUDIO_TEST_MODE) {
+    _network.begin();
+  }
+
+  _voice.begin();
+
+  if (!AppConfig::Feature::AUDIO_TEST_MODE) {
+    _llm.begin();
+    _display.drawFace(_brain.currentEmotion());
+  } else if (AppConfig::Feature::AUDIO_TEST_DISPLAY) {
+    _display.drawFace(EMOTION_IDLE);
+  }
+
   Serial.println("AdPet framework ready.");
 }
 
 void AppController::update() {
+  if (AppConfig::Feature::AUDIO_TEST_MODE) {
+    updateAudioTestMode();
+    delay(AppConfig::LOOP_DELAY_MS);
+    return;
+  }
+
   unsigned long nowMs = millis();
 
   _network.update();
@@ -36,6 +53,22 @@ void AppController::update() {
   }
 
   delay(AppConfig::LOOP_DELAY_MS);
+}
+
+void AppController::updateAudioTestMode() {
+  _voice.update();
+
+  if (AppConfig::Feature::AUDIO_TEST_DISPLAY && _voice.hasUserSpeech()) {
+    _voice.takeUserText();
+    _display.drawFace(EMOTION_SURPRISED);
+    _audioReactionActive = true;
+    _audioReactionStartMs = millis();
+  }
+
+  if (AppConfig::Feature::AUDIO_TEST_DISPLAY && _audioReactionActive && millis() - _audioReactionStartMs > 800) {
+    _audioReactionActive = false;
+    _display.drawFace(EMOTION_IDLE);
+  }
 }
 
 void AppController::handleVoiceToLlm() {

@@ -1,7 +1,5 @@
 # Wiring
 
-# Wiring
-
 ## Current Hardware
 
 | OLED | ESP32-S3 SuperMini |
@@ -22,7 +20,7 @@ Display assumptions:
 
 ## Planned Expansion Pins
 
-These pins are reserved for future modules. Do not use them for other hardware unless the plan changes.
+The shell is small and has no button holes, so the interaction plan avoids physical push buttons.
 
 | Module | Signal | ESP32-S3 SuperMini |
 | --- | --- | --- |
@@ -34,18 +32,35 @@ These pins are reserved for future modules. Do not use them for other hardware u
 | INMP441 mic | L/R | GND |
 | MAX98357A amp | VIN | 5V |
 | MAX98357A amp | GND | GND |
-| MAX98357A amp | BCLK | GPIO 4 |
-| MAX98357A amp | LRC | GPIO 5 |
-| MAX98357A amp | DIN | GPIO 7 |
-| Button A | Signal | GPIO 15 |
-| Button B | Signal | GPIO 16 |
+| MAX98357A amp | BCLK | GPIO 10 |
+| MAX98357A amp | LRC | GPIO 11 |
+| MAX98357A amp | DIN | GPIO 12 |
+| Hidden touch pad left | Copper foil pad | GPIO 10 |
+| Hidden touch pad right | Copper foil pad | GPIO 11 |
 
 The INMP441 and MAX98357A share BCLK and LRCLK. The mic uses `GPIO 6` as audio input data, and the amplifier uses `GPIO 7` as audio output data.
+
 Power is supplied by USB. No battery charging or battery voltage detection is planned for the current version.
 
-## Diagram
+## Shell Notes
 
-Open `docs/wiring.svg` for the visual wiring diagram.
+For a small shell, prefer:
+
+1. Copper foil touch pads glued inside the shell instead of physical buttons.
+2. A small I2S microphone placed near a tiny sound hole or grille.
+3. A thin speaker with a sound outlet or a small resonance cavity.
+4. Short wires and stacked modules only during prototyping; final assembly should use a small perfboard or custom PCB.
+
+Avoid:
+
+1. Tactile buttons that require holes.
+2. Large TTP223 touch modules unless there is enough internal space.
+3. Large round speakers if the shell has no room for an acoustic cavity.
+4. Battery and charging modules in the first version.
+
+## Diagrams
+
+Use the AI prompt from the design notes to generate a clean final wiring diagram.
 
 ## Troubleshooting
 
