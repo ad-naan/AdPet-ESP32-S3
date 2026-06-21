@@ -15,7 +15,7 @@ public:
 private:
   DisplayManager _display;
   PetBrain _brain;
-  NetworkManager _network;
+  AdPetNetworkManager _network;
   VoiceManager _voice;
   LlmClient _llm;
   bool _audioReactionActive = false;

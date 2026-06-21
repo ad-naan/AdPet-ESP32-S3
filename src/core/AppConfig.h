@@ -33,17 +33,17 @@ namespace AppConfig {
   }
 
   namespace Input {
-    const uint8_t TOUCH_LEFT_PIN = 10;
-    const uint8_t TOUCH_RIGHT_PIN = 11;
+    const uint8_t TOUCH_LEFT_PIN = 13;
+    const uint8_t TOUCH_RIGHT_PIN = 14;
   }
 
   namespace Feature {
-    const bool AUDIO_TEST_MODE = true;
+    const bool AUDIO_TEST_MODE = false;
     const bool AUDIO_TEST_MIC = true;
     const bool AUDIO_TEST_SPEAKER = true;
     const bool AUDIO_TEST_DISPLAY = true;
-    const bool NETWORK_ENABLED = false;
-    const bool VOICE_ENABLED = false;
-    const bool LLM_ENABLED = false;
+    const bool NETWORK_ENABLED = true;
+    const bool VOICE_ENABLED = true;
+    const bool LLM_ENABLED = true;
   }
 }
