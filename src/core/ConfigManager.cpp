@@ -23,6 +23,19 @@ void ConfigManager::begin() {
   _config.recordMs = preferences.getUShort("recordMs", _config.recordMs);
   _config.triggerRms = preferences.getUInt("trigRms", _config.triggerRms);
   _config.triggerPeak = preferences.getUInt("trigPeak", _config.triggerPeak);
+  
+  if (_config.gatewayBaseUrl == "http://192.168.1.100:8787" || _config.gatewayBaseUrl.length() == 0) {
+    _config.gatewayBaseUrl = "https://pet.adnaan.site";
+  }
+
+  // 深度优化：防呆机制。将自愈触发底线调整至 rms=350 peak=700，兼顾过滤底噪与极佳的说话灵敏度
+  if (_config.triggerRms < 100 || _config.triggerRms > 5000) {
+    _config.triggerRms = 350;
+  }
+  if (_config.triggerPeak < 200 || _config.triggerPeak > 10000) {
+    _config.triggerPeak = 700;
+  }
+  
   preferences.end();
 }
 
@@ -61,7 +74,7 @@ void ConfigManager::resetDefaults() {
 void ConfigManager::applyDefaults() {
   _config.wifiSsid = "";
   _config.wifiPassword = "";
-  _config.gatewayBaseUrl = "http://192.168.1.100:8787";
+  _config.gatewayBaseUrl = "https://pet.adnaan.site/";
   _config.gatewayApiKey = "";
   _config.deviceId = "adpet-001";
   _config.systemPrompt = "You are AdPet, a cute tiny desktop pet living inside a small OLED screen. Reply briefly and warmly.";

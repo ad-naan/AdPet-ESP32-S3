@@ -2,6 +2,14 @@
 
 #include <Arduino.h>
 
+enum MelodyType {
+  MELODY_GREETING,
+  MELODY_SUCCESS,
+  MELODY_ERROR
+};
+
+#include <WiFiClient.h>
+
 class VoiceManager {
 public:
   void begin();
@@ -13,9 +21,11 @@ public:
   bool hasRecording() const;
   bool takeRecording(uint8_t*& wavData, size_t& wavSize);
   void freeRecording();
+  void triggerFailureCooldown();
 
-  void playMelody();
+  void playMelody(MelodyType type = MELODY_GREETING);
   bool playWav(const uint8_t* wavData, size_t wavSize);
+  bool playWavFromStream(WiFiClient* stream, size_t totalBytes);
 
 private:
   bool _audioReady = false;
@@ -30,10 +40,14 @@ private:
   unsigned long _beepStartMs = 0;
   unsigned long _lastStatusPrintMs = 0;
   unsigned long _lastSoundTriggerMs = 0;
+  unsigned long _initCooldownStartMs = 0;
+  unsigned long _lastFailureTimeMs = 0;
 
   uint8_t* _recording = nullptr;
   size_t _recordingSize = 0;
   uint8_t _melodyNoteIndex = 0;
+  uint8_t _melodyLength = 0;
+  MelodyType _melodyType = MELODY_GREETING;
   float _tonePhase = 0.0f;
   float _currentToneHz = 0.0f;
   String _lastText;

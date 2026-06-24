@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+class VoiceManager;
+
 class LlmClient {
 public:
   void begin();
@@ -11,8 +13,7 @@ public:
   bool hasReply() const;
   String takeReply();
 
-  bool voiceChat(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, uint8_t*& ttsWav, size_t& ttsWavSize);
-  void freeTts(uint8_t* ttsWav);
+  bool voiceChat(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, String& emotionStr, VoiceManager& voice);
 
 private:
   bool _busy = false;
@@ -22,6 +23,6 @@ private:
   String joinUrl(const String& baseUrl, const String& path) const;
   String jsonEscape(const String& value) const;
   String extractJsonString(const String& json, const String& key) const;
-  bool postGatewayVoice(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, uint8_t*& ttsWav, size_t& ttsWavSize);
+  bool postGatewayVoice(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, String& emotionStr, VoiceManager& voice);
   bool postGatewayText(const String& text, String& reply);
 };

@@ -90,26 +90,35 @@ void AppController::handleVoiceToLlm() {
 
     String transcript;
     String reply;
-    uint8_t* ttsWav = nullptr;
-    size_t ttsWavSize = 0;
-    bool ok = _llm.voiceChat(wavData, wavSize, transcript, reply, ttsWav, ttsWavSize);
+    String emotionStr;
+    bool ok = _llm.voiceChat(wavData, wavSize, transcript, reply, emotionStr, _voice);
     free(wavData);
 
     if (ok) {
-      _brain.setEmotion(EMOTION_TALKING);
-      _display.drawFace(EMOTION_TALKING);
-      if (ttsWav != nullptr && ttsWavSize > 0) {
-        _voice.playWav(ttsWav, ttsWavSize);
-        _llm.freeTts(ttsWav);
-      } else {
-        _voice.playMelody();
+      // Use Gateway emotion if available, otherwise default to TALKING
+      Emotion replyEmotion = EMOTION_TALKING;
+      if (emotionStr.length() > 0) {
+        replyEmotion = emotionFromString(emotionStr);
+        Serial.print("[App] gateway emotion: ");
+        Serial.println(emotionStr);
       }
-      _brain.setEmotion(EMOTION_IDLE);
-      _display.drawFace(EMOTION_IDLE);
+
+      _brain.setEmotion(replyEmotion);
+      _display.drawFace(replyEmotion);
+
+      // 流式音频播放已在 llm 内部完成，此处做短暂延时展示表情后收尾清除
+      delay(800);
+      _brain.clearOverride();
+      _display.drawFace(_brain.currentEmotion());
     } else {
       _brain.setEmotion(EMOTION_ANGRY);
       _display.drawFace(EMOTION_ANGRY);
-      _voice.playMelody();
+      _voice.playMelody(MELODY_ERROR);
+      _voice.triggerFailureCooldown(); // 失败静默惩罚 10 秒，防止断网死循环
+      // Brief pause to show error emotion, then clear
+      delay(500);
+      _brain.clearOverride();
+      _display.drawFace(_brain.currentEmotion());
     }
     return;
   }
@@ -140,5 +149,9 @@ void AppController::handleLlmReply() {
   _network.setLastReply(reply);
   _brain.setEmotion(EMOTION_TALKING);
   _display.drawFace(EMOTION_TALKING);
-  _voice.playMelody();
+  _voice.playMelody(MELODY_SUCCESS);
+
+  // Clear override after melody
+  _brain.clearOverride();
+  _display.drawFace(_brain.currentEmotion());
 }

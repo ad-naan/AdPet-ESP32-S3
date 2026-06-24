@@ -1,8 +1,30 @@
 #include "LlmClient.h"
 #include "../../core/AppConfig.h"
 #include "../../core/ConfigManager.h"
+#include "../../drivers/audio/VoiceManager.h"
 #include <HTTPClient.h>
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
+
+static String urlDecode(const String& str) {
+  String decoded = "";
+  char temp[] = "00";
+  for (unsigned int i = 0; i < str.length(); i++) {
+    if (str[i] == '%') {
+      if (i + 2 < str.length()) {
+        temp[0] = str[i + 1];
+        temp[1] = str[i + 2];
+        decoded += (char)strtol(temp, NULL, 16);
+        i += 2;
+      }
+    } else if (str[i] == '+') {
+      decoded += ' ';
+    } else {
+      decoded += str[i];
+    }
+  }
+  return decoded;
+}
 
 void LlmClient::begin() {
   if (!AppConfig::Feature::LLM_ENABLED) {
@@ -40,24 +62,18 @@ String LlmClient::takeReply() {
   return reply;
 }
 
-bool LlmClient::voiceChat(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, uint8_t*& ttsWav, size_t& ttsWavSize) {
-  ttsWav = nullptr;
-  ttsWavSize = 0;
+bool LlmClient::voiceChat(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, String& emotionStr, VoiceManager& voice) {
   if (!AppConfig::Feature::LLM_ENABLED) return false;
   if (wavData == nullptr || wavSize == 0) return false;
 
   _busy = true;
-  bool ok = postGatewayVoice(wavData, wavSize, transcript, reply, ttsWav, ttsWavSize);
+  bool ok = postGatewayVoice(wavData, wavSize, transcript, reply, emotionStr, voice);
   if (ok) {
     _reply = reply;
     _hasReply = true;
   }
   _busy = false;
   return ok;
-}
-
-void LlmClient::freeTts(uint8_t* ttsWav) {
-  if (ttsWav != nullptr) free(ttsWav);
 }
 
 String LlmClient::joinUrl(const String& baseUrl, const String& path) const {
@@ -110,7 +126,7 @@ String LlmClient::extractJsonString(const String& json, const String& key) const
   return out;
 }
 
-bool LlmClient::postGatewayVoice(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, uint8_t*& ttsWav, size_t& ttsWavSize) {
+bool LlmClient::postGatewayVoice(const uint8_t* wavData, size_t wavSize, String& transcript, String& reply, String& emotionStr, VoiceManager& voice) {
   const RuntimeConfig& cfg = AppConfigStore.get();
   if (cfg.gatewayBaseUrl.length() == 0) {
     Serial.println("[Gateway] missing base URL");
@@ -148,6 +164,8 @@ bool LlmClient::postGatewayVoice(const uint8_t* wavData, size_t wavSize, String&
   } else {
     http.begin(url);
   }
+  http.setConnectTimeout(15000); // 15 秒连接超时保护，适配 4G 插卡网络握手
+  http.setTimeout(30000);       // 30 秒数据接收超时保护，给大模型 ASR+LLM+TTS 合成预留充足的时间
 
   const char* headers[] = { "X-AdPet-Transcript", "X-AdPet-Reply", "X-AdPet-Emotion" };
   http.collectHeaders(headers, 3);
@@ -168,41 +186,31 @@ bool LlmClient::postGatewayVoice(const uint8_t* wavData, size_t wavSize, String&
     return false;
   }
 
-  transcript = http.header("X-AdPet-Transcript");
-  reply = http.header("X-AdPet-Reply");
+  transcript = urlDecode(http.header("X-AdPet-Transcript"));
+  reply = urlDecode(http.header("X-AdPet-Reply"));
+  emotionStr = http.header("X-AdPet-Emotion");
 
   int len = http.getSize();
-  if (len <= 44 || len > 220000) {
+  if (len <= 44 || len > 350000) {
     Serial.print("[Gateway] unsupported audio length: ");
     Serial.println(len);
     http.end();
     return reply.length() > 0;
   }
 
-  ttsWav = (uint8_t*)malloc(len);
-  if (ttsWav == nullptr) {
-    Serial.println("[Gateway] response malloc failed");
-    http.end();
-    return reply.length() > 0;
-  }
-
-  WiFiClient* stream = http.getStreamPtr();
-  size_t offset = 0;
-  while (http.connected() && offset < (size_t)len) {
-    size_t available = stream->available();
-    if (available) {
-      size_t remaining = (size_t)len - offset;
-      size_t toRead = available < remaining ? available : remaining;
-      int readNow = stream->readBytes(ttsWav + offset, toRead);
-      offset += readNow;
-    } else {
-      delay(1);
-    }
+  auto* stream = http.getStreamPtr();
+  bool playOk = false;
+  if (stream != nullptr) {
+    Serial.println("[Gateway] starting real-time TTS audio stream play...");
+    playOk = voice.playWavFromStream(stream, len);
+    Serial.print("[Gateway] stream play completed, status=");
+    Serial.println(playOk);
+  } else {
+    Serial.println("[Gateway] stream is null!");
   }
   http.end();
 
-  ttsWavSize = offset;
-  return ttsWavSize > 44;
+  return playOk;
 }
 
 bool LlmClient::postGatewayText(const String& text, String& reply) {
@@ -222,6 +230,8 @@ bool LlmClient::postGatewayText(const String& text, String& reply) {
   } else {
     http.begin(url);
   }
+  http.setConnectTimeout(10000); // 10 秒连接超时保护，适配 4G 弱网握手
+  http.setTimeout(20000);       // 20 秒数据接收超时保护，给大模型文本计算预留充足时间
 
   http.addHeader("Content-Type", "application/json");
   if (cfg.gatewayApiKey.length() > 0) {

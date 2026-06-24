@@ -8,10 +8,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
+
+# 规避 Windows 环境下 httpx 解析 IPv6 [::1/128] 代理排除规则时的 InvalidPort 崩溃 bug
+os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from fastapi import Depends, FastAPI, File, Form, Header, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +68,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 异常处理
+import openai
+from fastapi import Request
+
+@app.exception_handler(openai.AuthenticationError)
+async def openai_auth_exception_handler(request: Request, exc: openai.AuthenticationError):
+    logger.error("MIMO API Key 验证失败: %s", exc)
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "MIMO API Key is invalid or expired. Check your .env file."}
+    )
+
+@app.exception_handler(openai.APIError)
+async def openai_api_exception_handler(request: Request, exc: openai.APIError):
+    logger.error("MIMO API 错误: %s", exc)
+    return JSONResponse(
+        status_code=502,
+        content={"detail": f"MIMO API error: {exc.message}"}
+    )
+
 # 静态文件
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
@@ -89,49 +114,70 @@ async def adpet_chat(
     device_id = x_adpet_device_id or meta.device_id
     logger.info("── 语音请求 [%s] ──", device_id)
 
-    # 1. ASR
-    wav_bytes = await audio.read()
-    transcript = await asr.transcribe(wav_bytes)
-
-    if not transcript.strip():
-        logger.warning("ASR 未识别到有效文本")
-        return Response(status_code=204)
-
-    # 2. 获取历史
-    history = await memory.get_recent(device_id)
-
-    # 3. LLM
-    reply = await llm.chat(
-        transcript=transcript,
-        history=history,
-        device_system_prompt=meta.system_prompt,
-    )
-
-    # 4. 记录对话
-    await memory.append(device_id, "user", transcript)
-    await memory.append(device_id, "assistant", reply)
-
-    # 5. 情绪推断
-    emo = emotion.infer_emotion(reply)
-
-    # 6. TTS
     try:
-        wav_reply = await tts.synthesize(reply)
+        # 1. ASR
+        wav_bytes = await audio.read()
+        transcript = await asr.transcribe(wav_bytes)
+
+        if not transcript.strip():
+            logger.warning("ASR 未识别到有效文本")
+            return Response(status_code=204)
+
+        # 2. 获取历史
+        history = await memory.get_recent(device_id)
+
+        # 3. LLM
+        reply = await llm.chat(
+            transcript=transcript,
+            history=history,
+            device_system_prompt=meta.system_prompt,
+        )
+
+        # 4. 记录对话
+        await memory.append(device_id, "user", transcript)
+        await memory.append(device_id, "assistant", reply)
+
+        # 5. 情绪推断
+        emo = emotion.infer_emotion(reply)
+
+        # 6. TTS
+        try:
+            wav_reply = await tts.synthesize(reply)
+        except Exception as e:
+            logger.error("TTS 失败: %s", e)
+            return Response(status_code=204)
+
+        logger.info("── 完成 [%s] emotion=%s ──", device_id, emo)
+
+        return Response(
+            content=wav_reply,
+            media_type="audio/wav",
+            headers={
+                "X-AdPet-Transcript": quote(transcript),
+                "X-AdPet-Reply": quote(reply),
+                "X-AdPet-Emotion": emo,
+            },
+        )
     except Exception as e:
-        logger.error("TTS 失败: %s", e)
-        return Response(status_code=204)
-
-    logger.info("── 完成 [%s] emotion=%s ──", device_id, emo)
-
-    return Response(
-        content=wav_reply,
-        media_type="audio/wav",
-        headers={
-            "X-AdPet-Transcript": transcript,
-            "X-AdPet-Reply": reply,
-            "X-AdPet-Emotion": emo,
-        },
-    )
+        type_str = type(e).__name__
+        if "AuthenticationError" in type_str or "auth" in str(e).lower():
+            logger.error("MIMO API Key 验证失败: %s", e)
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "MIMO API Key is invalid or expired. Check your .env file."}
+            )
+        elif "APIError" in type_str:
+            logger.error("MIMO API 错误: %s", e)
+            return JSONResponse(
+                status_code=502,
+                content={"detail": f"MIMO API error: {str(e)}"}
+            )
+        else:
+            logger.error("未预期错误: %s", e, exc_info=True)
+            return JSONResponse(
+                status_code=500,
+                content={"detail": str(e)}
+            )
 
 
 @app.post("/adpet/text", dependencies=[Depends(verify_api_key)])
@@ -140,18 +186,39 @@ async def adpet_text(payload: TextRequest):
     device_id = payload.device_id
     logger.info("── 文本请求 [%s]: %s ──", device_id, payload.text)
 
-    history = await memory.get_recent(device_id)
+    try:
+        history = await memory.get_recent(device_id)
 
-    reply = await llm.chat(
-        transcript=payload.text,
-        history=history,
-        device_system_prompt=payload.system_prompt,
-    )
+        reply = await llm.chat(
+            transcript=payload.text,
+            history=history,
+            device_system_prompt=payload.system_prompt,
+        )
 
-    await memory.append(device_id, "user", payload.text)
-    await memory.append(device_id, "assistant", reply)
+        await memory.append(device_id, "user", payload.text)
+        await memory.append(device_id, "assistant", reply)
 
-    return JSONResponse({"reply": reply})
+        return JSONResponse({"reply": reply})
+    except Exception as e:
+        type_str = type(e).__name__
+        if "AuthenticationError" in type_str or "auth" in str(e).lower():
+            logger.error("MIMO API Key 验证失败: %s", e)
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "MIMO API Key is invalid or expired. Check your .env file."}
+            )
+        elif "APIError" in type_str:
+            logger.error("MIMO API 错误: %s", e)
+            return JSONResponse(
+                status_code=502,
+                content={"detail": f"MIMO API error: {str(e)}"}
+            )
+        else:
+            logger.error("未预期错误: %s", e, exc_info=True)
+            return JSONResponse(
+                status_code=500,
+                content={"detail": str(e)}
+            )
 
 
 # ═══════════════════════════════════════════════════════
@@ -237,5 +304,5 @@ if __name__ == "__main__":
         "main:app",
         host=settings.HOST,
         port=settings.PORT,
-        reload=True,
+        reload=False,
     )

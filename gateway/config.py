@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # ---- MIMO API ----
     MIMO_API_KEY: str
-    MIMO_BASE_URL: str = "https://api.xiaomimimo.com/v1"
+    MIMO_BASE_URL: str = "https://token-plan-cn.xiaomimimo.com/v1"
 
     # ---- 网关认证 ----
     GATEWAY_API_KEY: str = ""
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # ---- 服务器 ----
     HOST: str = "0.0.0.0"
-    PORT: int = 8787
+    PORT: int = 8788
 
     model_config = {
         "env_file": ".env",

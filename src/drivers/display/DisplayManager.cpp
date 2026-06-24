@@ -103,7 +103,40 @@ void DisplayManager::drawFace(Emotion emotion) {
       drawEye(76, 22, 18, 18);
       _oled.drawRFrame(54, 46, 20, 8, 2);
       break;
+
+    case EMOTION_SAD:
+      _oled.drawLine(34, 24, 42, 28);
+      _oled.drawLine(94, 24, 86, 28);
+      drawEye(36, 30, 16, 14);
+      drawEye(76, 30, 16, 14);
+      _oled.drawLine(54, 52, 60, 48);
+      _oled.drawLine(60, 48, 68, 48);
+      _oled.drawLine(68, 48, 74, 52);
+      break;
+
+    case EMOTION_LOOK_LEFT:
+      _oled.drawRBox(30, 22, 18, 18, 4);
+      _oled.drawRBox(72, 22, 18, 18, 4);
+      _oled.drawDisc(35, 31, 3);
+      _oled.drawDisc(77, 31, 3);
+      drawMouthFlat();
+      break;
+
+    case EMOTION_LOOK_RIGHT:
+      _oled.drawRBox(38, 22, 18, 18, 4);
+      _oled.drawRBox(80, 22, 18, 18, 4);
+      _oled.drawDisc(51, 31, 3);
+      _oled.drawDisc(93, 31, 3);
+      drawMouthFlat();
+      break;
   }
 
+  _oled.sendBuffer();
+}
+
+void DisplayManager::showStatus(const String& status) {
+  _oled.clearBuffer();
+  _oled.drawStr(10, 20, "AdPet Debug");
+  _oled.drawStr(10, 45, status.c_str());
   _oled.sendBuffer();
 }
