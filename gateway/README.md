@@ -34,16 +34,29 @@ set MIMO_API_KEY=your_key
 uvicorn main:app --host 0.0.0.0 --port 8787
 ```
 
+## Run Gemini REST Mode
+
+This is the recommended Gemini mode for the current AdPet firmware. It uses Gemini REST for audio understanding and Gemini TTS for the WAV reply.
+
+```bash
+set ADPET_PROVIDER=gemini_rest
+set GEMINI_API_KEY=your_key
+set GEMINI_TEXT_MODEL=gemini-2.5-flash
+set GEMINI_TTS_MODEL=gemini-3.1-flash-tts-preview
+set GEMINI_TTS_VOICE=Kore
+uvicorn main:app --host 0.0.0.0 --port 8787
+```
+
 ## Run Gemini Live Mode
 
 ```bash
 set ADPET_PROVIDER=gemini_live
 set GEMINI_API_KEY=your_key
-set GEMINI_LIVE_MODEL=gemini-2.0-flash-live-001
+set GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-latest
 uvicorn main:app --host 0.0.0.0 --port 8787
 ```
 
-Gemini Live SDK behavior has changed across versions. If this adapter needs adjustment, keep the ESP32-facing endpoints unchanged and edit only `providers.py`.
+Gemini Live is optional and may be blocked by region/network policy even when normal REST calls work. If Live fails with `User location is not supported for the API use`, use `gemini_rest` or deploy the gateway on a server in a supported region.
 
 ## ESP32 Contract
 
@@ -58,4 +71,3 @@ It returns:
 - `X-AdPet-Transcript`: optional transcript
 - `X-AdPet-Reply`: assistant text
 - `X-AdPet-Emotion`: suggested expression
-
