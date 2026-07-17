@@ -24,4 +24,5 @@ private:
   void updateAudioTestMode();
   void handleVoiceToLlm();
   void handleLlmReply();
+  void printMemoryStats(const char* stage);
 };

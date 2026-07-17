@@ -25,8 +25,5 @@ private:
   void handleSave();
   void handleChat();
   void handleStatus();
-  void handleWifiList();
-  void handleTestGateway();
-  void handleTestWifi();
   String htmlEscape(const String& value) const;
 };

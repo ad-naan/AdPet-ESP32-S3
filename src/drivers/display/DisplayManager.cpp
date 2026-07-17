@@ -54,12 +54,40 @@ void DisplayManager::drawFace(Emotion emotion) {
       drawMouthFlat();
       break;
 
+    case EMOTION_LISTENING:
+      _oled.drawCircle(43, 31, 9);
+      _oled.drawCircle(85, 31, 9);
+      _oled.drawDisc(43, 31, 3);
+      _oled.drawDisc(85, 31, 3);
+      _oled.drawLine(57, 49, 71, 49);
+      _oled.drawCircle(105, 19, 2);
+      _oled.drawCircle(112, 15, 3);
+      break;
+
     case EMOTION_HAPPY:
       _oled.drawLine(33, 31, 40, 25);
       _oled.drawLine(40, 25, 50, 31);
       _oled.drawLine(75, 31, 84, 25);
       _oled.drawLine(84, 25, 95, 31);
       drawMouthSmile();
+      break;
+
+    case EMOTION_SAD:
+      _oled.drawLine(33, 27, 50, 31);
+      _oled.drawLine(76, 31, 95, 27);
+      drawEye(37, 32, 12, 10);
+      drawEye(79, 32, 12, 10);
+      _oled.drawLine(54, 53, 64, 47);
+      _oled.drawLine(64, 47, 74, 53);
+      break;
+
+    case EMOTION_CONFUSED:
+      drawEye(34, 23, 18, 18);
+      _oled.drawCircle(85, 31, 9);
+      _oled.drawLine(78, 20, 94, 17);
+      _oled.drawLine(55, 49, 63, 46);
+      _oled.drawLine(63, 46, 73, 50);
+      _oled.drawStr(103, 18, "?");
       break;
 
     case EMOTION_SLEEPY:
@@ -103,40 +131,7 @@ void DisplayManager::drawFace(Emotion emotion) {
       drawEye(76, 22, 18, 18);
       _oled.drawRFrame(54, 46, 20, 8, 2);
       break;
-
-    case EMOTION_SAD:
-      _oled.drawLine(34, 24, 42, 28);
-      _oled.drawLine(94, 24, 86, 28);
-      drawEye(36, 30, 16, 14);
-      drawEye(76, 30, 16, 14);
-      _oled.drawLine(54, 52, 60, 48);
-      _oled.drawLine(60, 48, 68, 48);
-      _oled.drawLine(68, 48, 74, 52);
-      break;
-
-    case EMOTION_LOOK_LEFT:
-      _oled.drawRBox(30, 22, 18, 18, 4);
-      _oled.drawRBox(72, 22, 18, 18, 4);
-      _oled.drawDisc(35, 31, 3);
-      _oled.drawDisc(77, 31, 3);
-      drawMouthFlat();
-      break;
-
-    case EMOTION_LOOK_RIGHT:
-      _oled.drawRBox(38, 22, 18, 18, 4);
-      _oled.drawRBox(80, 22, 18, 18, 4);
-      _oled.drawDisc(51, 31, 3);
-      _oled.drawDisc(93, 31, 3);
-      drawMouthFlat();
-      break;
   }
 
-  _oled.sendBuffer();
-}
-
-void DisplayManager::showStatus(const String& status) {
-  _oled.clearBuffer();
-  _oled.drawStr(10, 20, "AdPet Debug");
-  _oled.drawStr(10, 45, status.c_str());
   _oled.sendBuffer();
 }

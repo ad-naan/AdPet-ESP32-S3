@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "../board/BoardPins.h"
 
 namespace AppConfig {
   const unsigned long LOOP_DELAY_MS = 20;
@@ -13,28 +14,33 @@ namespace AppConfig {
   }
 
   namespace Display {
-    const uint8_t SDA_PIN = 8;
-    const uint8_t SCL_PIN = 9;
-    const uint8_t I2C_ADDRESS = 0x3C;
+    const uint8_t SDA_PIN = BoardPins::Oled::SDA;
+    const uint8_t SCL_PIN = BoardPins::Oled::SCL;
+    const uint8_t I2C_ADDRESS = BoardPins::Oled::I2C_ADDRESS;
   }
 
   namespace Audio {
-    const uint8_t MIC_BCLK_PIN = 4;
-    const uint8_t MIC_LRCLK_PIN = 5;
-    const uint8_t MIC_DATA_PIN = 6;
-    const uint8_t SPEAKER_BCLK_PIN = 10;
-    const uint8_t SPEAKER_LRCLK_PIN = 11;
-    const uint8_t SPEAKER_DATA_PIN = 12;
+    const uint8_t MIC_BCLK_PIN = BoardPins::Microphone::BCLK;
+    const uint8_t MIC_LRCLK_PIN = BoardPins::Microphone::LRCLK;
+    const uint8_t MIC_DATA_PIN = BoardPins::Microphone::DATA;
+    const uint8_t SPEAKER_BCLK_PIN = BoardPins::Speaker::BCLK;
+    const uint8_t SPEAKER_LRCLK_PIN = BoardPins::Speaker::LRCLK;
+    const uint8_t SPEAKER_DATA_PIN = BoardPins::Speaker::DATA;
     const uint32_t SAMPLE_RATE = 16000;
     const uint16_t TEST_TONE_HZ = 880;
     const uint32_t SOUND_TRIGGER_RMS = 650;
     const uint32_t SOUND_TRIGGER_PEAK = 1200;
     const unsigned long SOUND_TRIGGER_COOLDOWN_MS = 1500;
+    const uint16_t PRE_ROLL_MS = 300;
+    const uint16_t TRIGGER_CONFIRM_MS = 80;
+    const uint16_t END_SILENCE_MS = 700;
+    const uint16_t MIN_SPEECH_MS = 350;
+    const uint16_t POST_PLAYBACK_GUARD_MS = 700;
   }
 
   namespace Input {
-    const uint8_t TOUCH_LEFT_PIN = 13;
-    const uint8_t TOUCH_RIGHT_PIN = 14;
+    const uint8_t TOUCH_LEFT_PIN = BoardPins::FutureInput::LEFT;
+    const uint8_t TOUCH_RIGHT_PIN = BoardPins::FutureInput::RIGHT;
   }
 
   namespace Feature {
@@ -45,5 +51,6 @@ namespace AppConfig {
     const bool NETWORK_ENABLED = true;
     const bool VOICE_ENABLED = true;
     const bool LLM_ENABLED = true;
+    const bool DEMO_EMOTIONS_ENABLED = false;
   }
 }

@@ -1,6 +1,8 @@
 #include "AppController.h"
 #include "../core/AppConfig.h"
 #include "../core/ConfigManager.h"
+#include <esp32-hal-psram.h>
+#include <esp_heap_caps.h>
 
 void AppController::begin() {
   Serial.begin(AppConfig::SerialPort::BAUD_RATE);
@@ -8,6 +10,7 @@ void AppController::begin() {
 
   Serial.println();
   Serial.println("AdPet framework starting...");
+  printMemoryStats("boot");
   AppConfigStore.begin();
 
   if (!AppConfig::Feature::AUDIO_TEST_MODE || AppConfig::Feature::AUDIO_TEST_DISPLAY) {
@@ -31,6 +34,7 @@ void AppController::begin() {
   }
 
   Serial.println("AdPet framework ready.");
+  printMemoryStats("ready");
 }
 
 void AppController::update() {
@@ -46,8 +50,23 @@ void AppController::update() {
   _voice.update();
   _llm.update();
 
+  if (_voice.isRecording()) {
+    Emotion triggerEmotion = emotionFromName(AppConfigStore.get().triggerEmotion, EMOTION_LISTENING);
+    if (_brain.currentEmotion() != triggerEmotion) {
+      _brain.setEmotion(triggerEmotion);
+      _display.drawFace(triggerEmotion);
+    }
+  }
+
   handleVoiceToLlm();
   handleLlmReply();
+
+  if (_audioReactionActive && millis() - _audioReactionStartMs > 900) {
+    _audioReactionActive = false;
+    Emotion idleEmotion = emotionFromName(AppConfigStore.get().idleEmotion, EMOTION_IDLE);
+    _brain.setEmotion(idleEmotion);
+    _display.drawFace(idleEmotion);
+  }
 
   PetRenderState renderState = _brain.update(nowMs);
   if (renderState.changed) {
@@ -60,11 +79,19 @@ void AppController::update() {
 void AppController::updateAudioTestMode() {
   _voice.update();
 
-  if (AppConfig::Feature::AUDIO_TEST_DISPLAY && _voice.hasUserSpeech()) {
-    _voice.takeUserText();
-    _display.drawFace(EMOTION_SURPRISED);
-    _audioReactionActive = true;
-    _audioReactionStartMs = millis();
+  if (_voice.hasRecording()) {
+    uint8_t* wavData = nullptr;
+    size_t wavSize = 0;
+    if (_voice.takeRecording(wavData, wavSize)) {
+      Serial.print("[AudioTest] captured wav bytes=");
+      Serial.println(wavSize);
+      free(wavData);
+      if (AppConfig::Feature::AUDIO_TEST_DISPLAY) {
+        _display.drawFace(EMOTION_SURPRISED);
+        _audioReactionActive = true;
+        _audioReactionStartMs = millis();
+      }
+    }
   }
 
   if (AppConfig::Feature::AUDIO_TEST_DISPLAY && _audioReactionActive && millis() - _audioReactionStartMs > 800) {
@@ -90,35 +117,41 @@ void AppController::handleVoiceToLlm() {
 
     String transcript;
     String reply;
-    String emotionStr;
-    bool ok = _llm.voiceChat(wavData, wavSize, transcript, reply, emotionStr, _voice);
+    String replyEmotionName;
+    uint8_t* ttsWav = nullptr;
+    size_t ttsWavSize = 0;
+    bool ok = _llm.voiceChat(wavData, wavSize, transcript, reply, replyEmotionName, ttsWav, ttsWavSize);
     free(wavData);
 
     if (ok) {
-      // Use Gateway emotion if available, otherwise default to TALKING
-      Emotion replyEmotion = EMOTION_TALKING;
-      if (emotionStr.length() > 0) {
-        replyEmotion = emotionFromString(emotionStr);
-        Serial.print("[App] gateway emotion: ");
-        Serial.println(emotionStr);
-      }
-
+      _network.setLastReply(reply);
+      Emotion configuredReply = emotionFromName(AppConfigStore.get().replyEmotion, EMOTION_TALKING);
+      Emotion replyEmotion = emotionFromName(replyEmotionName, configuredReply);
       _brain.setEmotion(replyEmotion);
       _display.drawFace(replyEmotion);
-
-      // 流式音频播放已在 llm 内部完成，此处做短暂延时展示表情后收尾清除
-      delay(800);
-      _brain.clearOverride();
-      _display.drawFace(_brain.currentEmotion());
+      if (ttsWav != nullptr && ttsWavSize > 0) {
+        bool played = _voice.playWav(ttsWav, ttsWavSize);
+        _llm.freeTts(ttsWav);
+        if (played) {
+          Emotion idleEmotion = emotionFromName(AppConfigStore.get().idleEmotion, EMOTION_IDLE);
+          _brain.setEmotion(idleEmotion);
+          _display.drawFace(idleEmotion);
+        } else {
+          _voice.playMelody();
+          _audioReactionActive = true;
+          _audioReactionStartMs = millis();
+        }
+      } else {
+        _voice.playMelody();
+        _audioReactionActive = true;
+        _audioReactionStartMs = millis();
+      }
     } else {
       _brain.setEmotion(EMOTION_ANGRY);
       _display.drawFace(EMOTION_ANGRY);
-      _voice.playMelody(MELODY_ERROR);
-      _voice.triggerFailureCooldown(); // 失败静默惩罚 10 秒，防止断网死循环
-      // Brief pause to show error emotion, then clear
-      delay(500);
-      _brain.clearOverride();
-      _display.drawFace(_brain.currentEmotion());
+      _voice.playMelody();
+      _audioReactionActive = true;
+      _audioReactionStartMs = millis();
     }
     return;
   }
@@ -149,9 +182,22 @@ void AppController::handleLlmReply() {
   _network.setLastReply(reply);
   _brain.setEmotion(EMOTION_TALKING);
   _display.drawFace(EMOTION_TALKING);
-  _voice.playMelody(MELODY_SUCCESS);
+  _voice.playMelody();
+  _audioReactionActive = true;
+  _audioReactionStartMs = millis();
+}
 
-  // Clear override after melody
-  _brain.clearOverride();
-  _display.drawFace(_brain.currentEmotion());
+void AppController::printMemoryStats(const char* stage) {
+  Serial.print("[Memory] ");
+  Serial.print(stage);
+  Serial.print(" freeHeap=");
+  Serial.print(ESP.getFreeHeap());
+  Serial.print(" largestBlock=");
+  Serial.print(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+  Serial.print(" psram=");
+  Serial.print(psramFound() ? "yes" : "no");
+  Serial.print(" psramSize=");
+  Serial.print(ESP.getPsramSize());
+  Serial.print(" freePsram=");
+  Serial.println(ESP.getFreePsram());
 }

@@ -2,14 +2,6 @@
 
 #include <Arduino.h>
 
-enum MelodyType {
-  MELODY_GREETING,
-  MELODY_SUCCESS,
-  MELODY_ERROR
-};
-
-#include <WiFiClient.h>
-
 class VoiceManager {
 public:
   void begin();
@@ -19,13 +11,12 @@ public:
   String takeUserText();
 
   bool hasRecording() const;
+  bool isRecording() const;
   bool takeRecording(uint8_t*& wavData, size_t& wavSize);
   void freeRecording();
-  void triggerFailureCooldown();
 
-  void playMelody(MelodyType type = MELODY_GREETING);
+  void playMelody();
   bool playWav(const uint8_t* wavData, size_t wavSize);
-  bool playWavFromStream(WiFiClient* stream, size_t totalBytes);
 
 private:
   bool _audioReady = false;
@@ -40,14 +31,20 @@ private:
   unsigned long _beepStartMs = 0;
   unsigned long _lastStatusPrintMs = 0;
   unsigned long _lastSoundTriggerMs = 0;
-  unsigned long _initCooldownStartMs = 0;
-  unsigned long _lastFailureTimeMs = 0;
+  unsigned long _suppressTriggerUntilMs = 0;
 
   uint8_t* _recording = nullptr;
   size_t _recordingSize = 0;
+  size_t _recordingCapacitySamples = 0;
+  size_t _recordedSamples = 0;
+  size_t _samplesSinceTrigger = 0;
+  size_t _silenceSamples = 0;
+  size_t _loudSamples = 0;
+  int16_t* _preRoll = nullptr;
+  size_t _preRollCapacity = 0;
+  size_t _preRollCount = 0;
+  size_t _preRollWrite = 0;
   uint8_t _melodyNoteIndex = 0;
-  uint8_t _melodyLength = 0;
-  MelodyType _melodyType = MELODY_GREETING;
   float _tonePhase = 0.0f;
   float _currentToneHz = 0.0f;
   String _lastText;
@@ -55,8 +52,13 @@ private:
   void beginAudio();
   bool beginMic();
   bool beginSpeaker();
-  bool readMicLevel(uint32_t& rms, uint32_t& peak);
-  bool recordWav(uint16_t durationMs);
+  bool readMicChunk(int16_t* pcm, size_t capacity, size_t& sampleCount, uint32_t& rms, uint32_t& peak);
+  void processMicChunk(const int16_t* pcm, size_t sampleCount, uint32_t rms, uint32_t peak, unsigned long nowMs);
+  void pushPreRoll(const int16_t* pcm, size_t sampleCount);
+  bool startRecording();
+  void appendRecording(const int16_t* pcm, size_t sampleCount);
+  void finishRecording();
+  void discardMicInput();
   void writeWavHeader(uint8_t* buffer, uint32_t pcmBytes);
   void updateMelody(unsigned long nowMs);
   void playTestToneChunk();
