@@ -1,13 +1,14 @@
+version: '3.8'
+
 services:
-  gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: adpet-gateway:local
+  adpet-gateway:
+    build: .
     container_name: adpet-gateway
-    restart: unless-stopped
-    init: true
-    env_file:
-      - ${ADPET_ENV_FILE:-.env}
+    restart: always
     ports:
       - "8787:8787"
+    volumes:
+      - ./adpet_gateway.db:/app/adpet_gateway.db
+      - ./.env:/app/.env
+    environment:
+      - TZ=Asia/Shanghai
