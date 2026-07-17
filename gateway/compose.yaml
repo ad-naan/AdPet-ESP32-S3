@@ -1,0 +1,13 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adpet-gateway:local
+    container_name: adpet-gateway
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ${ADPET_ENV_FILE:-.env}
+    ports:
+      - "8787:8787"
